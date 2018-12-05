@@ -24,9 +24,11 @@ dependencies:
 - text
 - containers
 - unordered-containers
+- megaparsec
 
 library:
   source-dirs: src
+  default-extensions: OverloadedStrings FlexibleInstances
 
 executables:
   aoc2018-exe:
