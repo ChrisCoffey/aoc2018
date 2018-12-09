@@ -1,6 +1,8 @@
 module Main where
 
-import Lib
+import Problems.Nine
 
 main :: IO ()
-main = someFunc
+main = do
+    part1
+    part2
