@@ -1,3 +1,6 @@
-resolver: lts-12.11
+flags: {}
 packages:
 - .
+extra-deps:
+- cuckoo-filter-0.2.0.1
+resolver: lts-12.11
