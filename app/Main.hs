@@ -5,3 +5,4 @@ import Problems.Ten
 main :: IO ()
 main = do
     part1
+    part2
