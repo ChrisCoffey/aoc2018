@@ -99,6 +99,23 @@ summedAreaTable s =
 
         rawCellValues = [((x,y), cellPower x y s)| x <- X <$> [1..300], y <- Y <$> [1..300]]
 
+maxPower' ::
+    SummedAreaT
+    -> (Power, (X, Y, Int))
+maxPower' table =
+    maximumBy (comparing fst) $ [(computePower x y sz, (X x, Y y, sz))|
+        sz <- [1..30],
+        x <- [1..300-sz],
+        y <- [1..300-sz]
+      ]
+    where
+        computePower x y sz = let
+            a = table M.! (X x, Y y)
+            b = table M.! (X (x+sz), Y y)
+            c = table M.! (X x, Y (y+sz))
+            d = table M.! (X (x+sz), Y (y+sz))
+            in ((powerSum a d) `powerSum` (invertP c)) `powerSum` (invertP b)
+
 invertP ::
     Power
     -> Power
