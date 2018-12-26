@@ -53,8 +53,8 @@ tick (TS carts track) = go [] carts
                 then pure ct
                 else go rest (ct:acc)
         go [] acc = do
-            printFrame (TS acc track)
-            go (trace (show oc) oc) []
+            -- printFrame (TS acc track)
+            go oc []
             where
                 oc = reverse $ sortBy (comparing location) acc
 
@@ -63,24 +63,24 @@ tick (TS carts track) = go [] carts
                 Intersection ->
                     case (dir, turn) of
                         (U, LFT) -> Cart L (Point (x-1,y)) ST
-                        (U, RGT) -> Cart R (Point (x+1, y)) LFT
                         (U, ST) -> Cart U (Point (x,y+1)) RGT
+                        (U, RGT) -> Cart R (Point (x+1, y)) LFT
 
                         (D, LFT) -> Cart R (Point (x+1,y)) ST
-                        (D, RGT) -> Cart L (Point (x-1,y)) LFT
                         (D, ST) -> Cart D (Point (x,y-1)) RGT
+                        (D, RGT) -> Cart L (Point (x-1,y)) LFT
 
                         (L, LFT) -> Cart D (Point (x,y-1)) ST
-                        (L, RGT) -> Cart U (Point (x,y+1)) LFT
                         (L, ST) -> Cart L (Point (x-1,y)) RGT
+                        (L, RGT) -> Cart U (Point (x,y+1)) LFT
 
                         (R, LFT) -> Cart U (Point (x,y+1)) ST
-                        (R, RGT) -> Cart D (Point (x,y-1)) LFT
                         (R, ST) -> Cart R (Point (x+1,y)) RGT
+                        (R, RGT) -> Cart D (Point (x,y-1)) LFT
                 LTurn ->
                     case dir of
                         U -> Cart L (Point (x-1, y)) turn
-                        D -> Cart L (Point (x+1,y)) turn
+                        D -> Cart R (Point (x+1,y)) turn
                         L -> Cart U (Point (x,y+1)) turn
                         R -> Cart D (Point (x,y-1)) turn
                 RTurn ->
@@ -169,11 +169,12 @@ printFrame ::
     TrackState
     -> IO ()
 printFrame (TS carts ts ) = do
-    mapM_ putStrLn $ lines points
+    threadDelay 250000
     putStr "\ESC[2J"
-    threadDelay 6500000
+    mapM_ putStrLn points
     where
-        points = coordChar <$> [ (x,y) | y <- [0,-1..(-150)], x <- [0..150] ]
+        points :: [String]
+        points = lines $ coordChar <$> [ (x,y) | y <- [0,-1..(-150)], x <- [0..150] ]
         cartMap = M.fromList $ (\k -> (location k, k)) <$> carts
         coordChar px = fromJust $
             nl px <|>
@@ -181,7 +182,7 @@ printFrame (TS carts ts ) = do
             (segmentToChar <$> M.lookup (Point px) ts ) <|>
             pure ' '
 
-        nl (_, 150) = Just '\n'
+        nl (150, _) = Just '\n'
         nl _ = Nothing
 
         segmentToChar Horizontal = '-'
