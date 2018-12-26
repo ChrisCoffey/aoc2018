@@ -3,6 +3,8 @@ module Problems.Thirteen (
     part2
     ) where
 
+import Control.Concurrent (threadDelay)
+import Control.Applicative ((<|>))
 import Data.Monoid ((<>))
 import Data.List (sortBy, groupBy)
 import Data.Maybe (isJust, fromJust)
@@ -14,10 +16,11 @@ import Data.Ord (comparing)
 import Debug.Trace
 
 data TrackSegment
-    = Line {start::Point, end::Point}
-    | LTurn {a:: Point, b:: Point, c::Point, d::Point}
-    | RTurn {a:: Point, b:: Point, c::Point, d::Point}
-    | Intersection {left :: Point, right :: Point, up :: Point, down ::Point}
+    = Horizontal
+    | Vertical
+    | LTurn
+    | RTurn
+    | Intersection
     deriving (Show, Eq, Ord)
 
 newtype Point = Point (Int, Int)
@@ -41,65 +44,71 @@ data TrackState
 
 tick ::
     TrackState
-    -> Cart
+    -> IO Cart
 tick (TS carts track) = go [] carts
     where
         go (cart:rest) acc = let
             ct = cartTick cart
             in  if ( collisions (ct:rest)) || ( collisions (ct:acc))
-                then ct
+                then pure ct
                 else go rest (ct:acc)
-        go [] acc =
-            go (sortBy (comparing location) acc) []
+        go [] acc = do
+            printFrame (TS acc track)
+            go (trace (show oc) oc) []
+            where
+                oc = reverse $ sortBy (comparing location) acc
 
-        cartTick (Cart dir l turn) =
+        cartTick c@(Cart dir l@(Point (x,y)) turn) =
             case track M.! l of
-                (Intersection l r u d) ->
+                Intersection ->
                     case (dir, turn) of
-                        (U, LFT) -> Cart L l ST
-                        (U, RGT) -> Cart R r LFT
-                        (U, ST) -> Cart U u RGT
+                        (U, LFT) -> Cart L (Point (x-1,y)) ST
+                        (U, RGT) -> Cart R (Point (x+1, y)) LFT
+                        (U, ST) -> Cart U (Point (x,y+1)) RGT
 
-                        (D, LFT) -> Cart R r ST
-                        (D, RGT) -> Cart L l LFT
-                        (D, ST) -> Cart D d RGT
+                        (D, LFT) -> Cart R (Point (x+1,y)) ST
+                        (D, RGT) -> Cart L (Point (x-1,y)) LFT
+                        (D, ST) -> Cart D (Point (x,y-1)) RGT
 
-                        (L, LFT) -> Cart D d ST
-                        (L, RGT) -> Cart U u LFT
-                        (L, ST) -> Cart L l RGT
+                        (L, LFT) -> Cart D (Point (x,y-1)) ST
+                        (L, RGT) -> Cart U (Point (x,y+1)) LFT
+                        (L, ST) -> Cart L (Point (x-1,y)) RGT
 
-                        (R, LFT) -> Cart U u ST
-                        (R, RGT) -> Cart D d LFT
-                        (R, ST) -> Cart R r RGT
-                (LTurn l r u d) ->
+                        (R, LFT) -> Cart U (Point (x,y+1)) ST
+                        (R, RGT) -> Cart D (Point (x,y-1)) LFT
+                        (R, ST) -> Cart R (Point (x+1,y)) RGT
+                LTurn ->
                     case dir of
-                        U -> Cart L l turn
-                        D -> Cart R r turn
-                        L -> Cart U u turn
-                        R -> Cart D d turn
-                (RTurn l r u d) ->
+                        U -> Cart L (Point (x-1, y)) turn
+                        D -> Cart L (Point (x+1,y)) turn
+                        L -> Cart U (Point (x,y+1)) turn
+                        R -> Cart D (Point (x,y-1)) turn
+                RTurn ->
                     case dir of
-                        U -> Cart R r turn
-                        D -> Cart L l turn
-                        L -> Cart D d turn
-                        R -> Cart U u turn
-                (Line a b) ->
+                        U -> Cart R (Point (x+1, y)) turn
+                        D -> Cart L (Point (x-1,y)) turn
+                        L -> Cart D (Point (x,y-1)) turn
+                        R -> Cart U (Point (x,y+1)) turn
+                Horizontal ->
                     case dir of
-                        U -> Cart dir b turn
-                        D -> Cart dir a turn
-                        L -> Cart dir a turn
-                        R -> Cart dir b turn
+                        L -> Cart dir (Point (x-1, y)) turn
+                        R -> Cart dir (Point (x+1, y)) turn
+                Vertical ->
+                    case dir of
+                        U -> Cart dir (Point (x,y+1)) turn
+                        D -> Cart dir (Point (x,y-1)) turn
 
 collisions ::
     [Cart]
     -> Bool
 collisions carts =
-    not . null . filter ((>= 2) . length) . groupBy (\l r -> location l == location r) $ sortBy (comparing location) carts
+    any ((>= 2) . length) . groupBy (\l r -> location l == location r) $
+        sortBy (comparing location) carts
 
 part1 :: IO ()
 part1 = do
-    input <- parseInput "data/13.test"
-    let res = tick input
+    input <- parseInput "data/13.data"
+    res <- tick input
     print res
 
 part2 :: IO ()
@@ -118,26 +127,18 @@ parseInput fp = do
     pure $ TS {carts = carts, track = M.fromList segments}
 
 toSegment ::
-    Point
-    -> Char
+    Char
     -> Maybe TrackSegment
-toSegment (Point (x,y)) '-' = Just $ Line (Point (x-1, y)) (Point (x+1, y))
-toSegment (Point (x,y)) '|' = Just $ Line (Point (x, y-1)) (Point (x, y+1))
-toSegment (Point (x,y)) '+' = Just $ Intersection {
-    left = (Point (x-1, y)),
-    right = (Point (x+1, y)),
-    up = (Point (x, y+1)),
-    down = (Point (x, y-1))
-    }
-toSegment (Point (x,y)) '>' = Just $ Line (Point (x-1, y)) (Point (x+1, y))
-toSegment (Point (x,y)) '<' = Just $ Line (Point (x-1, y)) (Point (x+1, y))
-toSegment (Point (x,y)) '^' = Just $ Line (Point (x, y-1)) (Point (x, y+1))
-toSegment (Point (x,y)) 'v' = Just $ Line (Point (x, y-1)) (Point (x, y+1))
-toSegment point ' ' = Nothing
-toSegment (Point (x,y)) '/' = Just $ RTurn (Point (x-1,y)) (Point (x+1,y))
-                                           (Point (x,y+1)) (Point (x,y-1))
-toSegment (Point (x,y)) '\\' = Just $ LTurn (Point (x-1,y)) (Point (x+1,y))
-                                            (Point (x,y+1)) (Point (x,y-1))
+toSegment '-' = Just Horizontal
+toSegment '>' = Just Horizontal
+toSegment '<' = Just Horizontal
+toSegment '|' = Just Vertical
+toSegment '^' = Just Vertical
+toSegment 'v' = Just Vertical
+toSegment '+' = Just Intersection
+toSegment '/' = Just RTurn
+toSegment '\\' = Just LTurn
+toSegment ' ' = Nothing
 
 makeCoords ::
     [T.Text]
@@ -152,7 +153,7 @@ makeSegments ::
     [(Point, Char)]
     -> [(Point, TrackSegment)]
 makeSegments pts =
-    [(p, fromJust $ toSegment p c) | (p,c) <- pts, isJust (toSegment p c)]
+    [(p, fromJust $ toSegment c) | (p,c) <- pts, isJust (toSegment c)]
 
 makeCarts ::
     [(Point, Char)]
@@ -163,3 +164,33 @@ makeCarts pts = [ toC p c | (p,c) <- pts, c `elem` ['>', '<', '^', 'v']]
         toC p '<' = Cart L p LFT
         toC p '^' = Cart U p LFT
         toC p 'v' = Cart D p LFT
+
+printFrame ::
+    TrackState
+    -> IO ()
+printFrame (TS carts ts ) = do
+    mapM_ putStrLn $ lines points
+    putStr "\ESC[2J"
+    threadDelay 6500000
+    where
+        points = coordChar <$> [ (x,y) | y <- [0,-1..(-150)], x <- [0..150] ]
+        cartMap = M.fromList $ (\k -> (location k, k)) <$> carts
+        coordChar px = fromJust $
+            nl px <|>
+            (cartToChar <$> M.lookup (Point px) cartMap ) <|>
+            (segmentToChar <$> M.lookup (Point px) ts ) <|>
+            pure ' '
+
+        nl (_, 150) = Just '\n'
+        nl _ = Nothing
+
+        segmentToChar Horizontal = '-'
+        segmentToChar Vertical = '|'
+        segmentToChar LTurn = '\\'
+        segmentToChar RTurn = '/'
+        segmentToChar Intersection = '+'
+
+        cartToChar (Cart R _ _) = '>'
+        cartToChar (Cart L _ _) = '<'
+        cartToChar (Cart U _ _) = '^'
+        cartToChar (Cart D _ _) = 'v'
