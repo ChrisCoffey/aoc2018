@@ -27,6 +27,7 @@ dependencies:
 - megaparsec
 - cuckoo-filter
 - hashable
+- digits
 
 library:
   source-dirs: src

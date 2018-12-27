@@ -3,7 +3,8 @@ module Problems.Fourteen (
     part2
     ) where
 
-import Data.List (elemIndex)
+import Data.Foldable (find)
+import Data.List (findIndex)
 import qualified Data.Map as M
 
 import Debug.Trace
@@ -61,8 +62,7 @@ run terminateOn recipes =
     go 2 (recipes, Elf 0, Elf 1)
     where
         go n (rxs, e1, e2)
-            | n == terminateOn + 10 = computeResult terminateOn rxs
-            | otherwise =  go (n+1) $ tick rxs e1 e2
+            | n == terminateOn + 10 = computeResult terminateOn rxs | otherwise =  go (n+1) $ tick rxs e1 e2
 
 computeResult ::
     Int
@@ -73,23 +73,23 @@ computeResult n scoreboard =
 
 runPart2 ::
     Recipes
-    -> Maybe Int
+    -> Maybe (String, String, Int)
 runPart2 scoreboard =
-    elemIndex "59414" . fmap (\(a, _, _) -> prevFive a) $ iterate go (scoreboard, Elf 4, Elf 3)
+    find check . fmap (\(a, _, _) -> prevFive a) $ iterate go (scoreboard, Elf 6, Elf 4)
     where
         go (rsx, e1, e2) = tick rsx e1 e2
+        check (s,s', _) = s == "92510" || s' == "92510"
 
-        isMatch "92510" = True
-        isMatch "920831" = True
-        isMatch _ = False
-
-        prevFive :: Recipes -> String
         prevFive rsx = let
-            scores = (rsx M.!) <$> [(M.size rsx-5)..(M.size rsx) -1 ] :: [Score]
-            in concat $ (show . unScore) <$> scores
+            sz = M.size rsx
+            scores = (rsx M.!) <$> [sz-5..(sz -1) ] :: [Score]
+            scores' = (rsx M.!) <$> [sz-6..(sz -2) ] :: [Score]
+            str = concat $ (show . unScore) <$> scores
+            str' = concat $ (show . unScore) <$> scores'
+            in (str, str', sz -5)
 
 part1 :: IO ()
 part1 = print $ unScore <$> run 920831 (M.fromList [(0,Score 3), (1, Score 7)])
 
 part2 :: IO ()
-part2 = print $ runPart2 (M.fromList [(0,Score 3), (1, Score 7), (2, Score 1), (3, Score 0), (4, Score 1), (5, Score 0)])
+part2 = print $ runPart2 (M.fromList [(0,Score 3), (1, Score 7), (2, Score 1), (3, Score 0), (4, Score 1), (5, Score 0), (6, Score 1)])
