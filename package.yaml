@@ -32,6 +32,7 @@ dependencies:
 library:
   source-dirs: src
   default-extensions: OverloadedStrings FlexibleInstances GeneralizedNewtypeDeriving FlexibleContexts
+    NamedFieldPuns TupleSections
 
 executables:
   aoc2018-exe:
