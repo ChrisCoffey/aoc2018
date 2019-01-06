@@ -28,6 +28,8 @@ dependencies:
 - cuckoo-filter
 - hashable
 - digits
+- mtl
+- transformers
 
 library:
   source-dirs: src

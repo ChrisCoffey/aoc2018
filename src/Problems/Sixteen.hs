@@ -5,7 +5,8 @@ module Problems.Sixteen (
 
 import Data.Bits ((.&.), (.|.))
 import Data.Maybe (fromJust)
-import Data.List (sortBy, groupBy, sort, group)
+import Data.List (sortBy, groupBy, sort, group, intersect)
+import Data.Foldable (foldl')
 import qualified Data.Map as M
 import Data.Ord (comparing)
 import Text.Megaparsec
@@ -82,7 +83,7 @@ runOpClass MulI = rImmediateBinOp (*)
 runOpClass BanR = rRegisterBinOp (.&.)
 runOpClass BanI = rImmediateBinOp (.&.)
 runOpClass BorR = rRegisterBinOp (.|.)
-runOpClass BorI = rRegisterBinOp (.|.)
+runOpClass BorI = rImmediateBinOp (.|.)
 runOpClass SetR = rRegisterBinOp const
 runOpClass opClass = \ reg@(R r) (R (code, a, b, c)) ->
     case opClass of
@@ -125,14 +126,13 @@ setOutput (R (i,a,b,c)) 1 n = R (i,n,b,c)
 setOutput (R (i,a,b,c)) 2 n = R (i,a,n,c)
 setOutput (R (i,a,b,c)) 3 n = R (i,a,b,n)
 
--- Each produces posibilities, need to then perform a "best match to determine which are possible"
 
 findOpcodeCandidates ::
     [MysteryOp]
     -> (Int, [OpClass])
 findOpcodeCandidates [] = error "Could not determine OpClass"
 findOpcodeCandidates mysteries = let
-    a = filter ((== mCount) . length) . group . sort . concat $ matches <$> mysteries
+    a = filter ((== mCount) . length). group . sort . concat $ matches <$> mysteries
     in (code,) . concatMap (take 1) $ a
     where
         mCount = length mysteries
@@ -140,15 +140,15 @@ findOpcodeCandidates mysteries = let
 
 findOpcodes ::
     M.Map Int [OpClass]
-    -> M.Map Int [OpClass]
-    -> M.Map Int [OpClass]
+    -> M.Map Int OpClass
+    -> M.Map Int OpClass
 findOpcodes candidates found
-    | M.null candidates = found
-    | otherwise = findOpcodes (M.difference (trace (show candidates') candidates') solved) (M.union solved found)
+    | M.size candidates == M.size found = found
+    | otherwise = findOpcodes candidates (M.union solved found)
     where
         candidates' = filter (`notElem` foundCodes) <$> candidates
-        foundCodes = concat $ M.elems found
-        solved = M.filter ((== 1) . length) candidates
+        foundCodes = M.elems found
+        solved =  fmap head $ M.filter ((== 1) . length) candidates'
 
 rCode (R (code, _, _, _)) = code
 
@@ -170,8 +170,11 @@ part2 = do
         codeGroups = groupBy eqByCode . sortBy sortByCode $ p1 input
         codes = findOpcodeCandidates <$> codeGroups
         codeIdx = M.fromList codes
-        res = findOpcodes codeIdx M.empty
+        opClasses = findOpcodes codeIdx M.empty
+        res = foldl' (applyOp opClasses) (R (0,0,0,0)) $ p2 input
     print res
+    where
+        applyOp ops regs inst = runOpClass (ops M.! rCode inst) regs inst
 
 
 --
